@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VRM0.x 目まわりリアクティブ・エディタ v5</title>
+  <style>
+    :root {
+      --bg-dark: #12141a;
+      --panel-bg: #1a1e27;
+      --card-bg: #232936;
+      --accent: #3a86ff;
+      --accent-hover: #2563eb;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #viewport-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at center, #1e2532 0%, #0d1017 100%);
+    }
+    #canvas3d { width: 100%; height: 100%; display: block; }
+
+    #dropzone-overlay {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(18, 20, 26, 0.9);
+      border: 2px dashed var(--accent);
+      z-index: 10;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #dropzone-overlay.hidden { display: none; }
+    #dropzone-overlay p { margin-top: 10px; color: var(--text-muted); font-size: 13px; }
+    #loading-msg { margin-top: 16px; font-weight: 600; color: var(--accent); display: none; }
+
+    #sidebar {
+      width: 450px;
+      background-color: var(--panel-bg);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+    }
+    .panel-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background-color: #171b22;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-header h1 { font-size: 15px; font-weight: 600; color: #fff; }
+    .panel-header p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+    .control-group {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .group-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .control-item { margin-bottom: 12px; }
+    .control-item:last-child { margin-bottom: 0; }
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .label-row span:last-child { color: var(--accent); font-family: monospace; }
+    input[type="range"] {
+      width: 100%;
+      appearance: none;
+      background: #334155;
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    input[type="text"] {
+      width: 100%;
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    select {
+      width: 100%;
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .btn-preset {
+      padding: 8px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .btn-preset:hover {
+      background: #334155;
+      border-color: var(--accent);
+    }
+
+    .btn-action {
+      width: 100%;
+      padding: 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-switch {
+      background: #334155;
+      color: #e2e8f0;
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .btn-switch:hover { background: #475569; }
+
+    .btn-save {
+      background: var(--success);
+      color: #fff;
+    }
+    .btn-save:hover { background: #059669; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      background: #334155;
+      color: #cbd5e1;
+    }
+
+    .mesh-info {
+      font-size: 11px;
+      background: var(--card-bg);
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    #error-box {
+      display: none;
+      background: #7f1d1d;
+      color: #fecaca;
+      padding: 12px;
+      margin: 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      word-break: break-all;
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@0.6.11/lib/three-vrm.js"></script>
+</head>
+<body>
+
+  <div id="viewport-container">
+    <canvas id="canvas3d"></canvas>
+
+    <div id="dropzone-overlay">
+      <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: var(--accent);">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+      </svg>
+      <h3 style="margin-top: 12px; font-size: 15px;">VRMファイルをドロップ、または選択</h3>
+      <button id="btn-select-file" style="margin-top: 14px; padding: 8px 16px; background: var(--accent); color: #fff; border: none; border-radius: 4px; cursor: pointer;">ファイルを選択</button>
+      <input type="file" id="file-input" accept=".vrm,.glb" style="display: none;">
+      <div id="loading-msg">モデルを解析中...</div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="panel-header">
+      <div>
+        <h1>VRM 目まわりリアクティブ調整 v5</h1>
+        <p>書き出し結果準拠プレビュー & 非破壊安全書き出し</p>
+      </div>
+      <!-- モデル切り替えボタン -->
+      <button id="btn-switch-model" class="btn-switch">🔄 別のVRMに差替</button>
+    </div>
+
+    <div id="error-box"></div>
+
+    <!-- 非破壊VRM書き出し -->
+    <div class="control-group" style="background: #12231c; border-bottom: 2px solid #065f46;">
+      <div class="group-title" style="color: #34d399;">
+        <span>VRMの非破壊書き出し (GLB保持保存)</span>
+      </div>
+      <p style="font-size: 11px; color: #cbd5e1; margin-bottom: 10px; line-height: 1.5;">
+        書き出し時は、閉眼側を既存の Blink / Blink_L / Blink_R、見開き側を PerfectSync の EyeWideLeft / EyeWideRight にだけ局所反映します。<br>
+        A / I / U / E / O など口形差分や、その他の表情モーフは変更しません。
+      </p>
+      <button id="btn-export-vrm" class="btn-action btn-save">
+        💾 調整済み設定を別名VRMとして保存
+      </button>
+      <p style="font-size: 10px; color: #94a3b8; margin-top: 6px; line-height: 1.4;">
+        ※既存データを可能な限り保持し、元ファイルとは別名で保存します。
+      </p>
+      <p style="font-size: 10px; color: #fbbf24; margin-top: 8px; line-height: 1.5;">
+        ⚠ このツールによる改変は、使用するVRMモデル・関連素材の利用規約、改変可否、再配布条件、商用利用条件等を必ず確認し、それらに従って行ってください。<br>
+        このツールの使用自体が、第三者モデルや素材の改変・再配布等の許可を与えるものではありません。
+      </p>
+    </div>
+
+    <!-- ベース表情選択（常時維持） -->
+    <div class="control-group" style="background: #171f2c;">
+      <div class="group-title" style="color: #38bdf8;">
+        <span>ベース表情テスト（常時維持）</span>
+      </div>
+      <div class="control-item">
+        <div class="label-row"><span>重ね合わせるベース表情</span></div>
+        <select id="select-base-expression">
+          <option value="none">通常（Neutral）</option>
+          <option value="joy">喜（Joy）</option>
+          <option value="angry">怒（Angry）</option>
+          <option value="sorrow">哀（Sorrow）</option>
+          <option value="fun">楽（Fun）</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 瞳の動作テスト（手動強制） -->
+    <div class="control-group" style="background: #1e1b2e;">
+      <div class="group-title" style="color: #c084fc;">
+        <span>瞳（黒目）動作検証（手動テスト）</span>
+      </div>
+      <div class="control-item">
+        <div class="label-row">
+          <span>瞳手動強制スケール (確認用)</span>
+          <span id="val-manual-iris-scale">1.00x</span>
+        </div>
+        <input type="range" id="slider-manual-iris-scale" min="0.4" max="2.0" step="0.05" value="1.0">
+      </div>
+    </div>
+
+    <!-- 開閉テスト操作 -->
+    <div class="control-group">
+      <div class="group-title">
+        <span>開閉連動テスト操作</span>
+        <button id="btn-autoblink" class="badge" style="cursor: pointer; border: none;">自動まばたき: OFF</button>
+      </div>
+      <div class="control-item">
+        <div class="label-row">
+          <span>開閉状態 (0.0=見開き / 0.5=通常 / 1.0=閉眼)</span>
+          <span id="val-eye-state">0.50</span>
+        </div>
+        <input type="range" id="slider-eye-state" min="0" max="1" step="0.01" value="0.5">
+      </div>
+      <div class="btn-grid" style="margin-top: 8px;">
+        <button class="btn-preset" id="p-wide">見開き (0.0)</button>
+        <button class="btn-preset" id="p-neutral">通常 (0.5)</button>
+        <button class="btn-preset" id="p-blink">閉眼 (1.0)</button>
+        <button class="btn-preset" id="btn-slowmo">速度: 等倍</button>
+      </div>
+    </div>
+
+    <!-- 瞳（Iris）設定 -->
+    <div class="control-group">
+      <div class="group-title">
+        <span>瞳全体（黒目）の連動設定</span>
+      </div>
+      <div class="control-item">
+        <div class="label-row"><span>対象の瞳マテリアル (Iris)</span></div>
+        <select id="select-material-iris"><option value="">（モデル読み込み待ち）</option></select>
+      </div>
+      <div class="control-item">
+        <div class="label-row">
+          <span>見開き時の瞳拡大率 (Iris Dilate)</span>
+          <span id="val-iris-scale-max">1.35x</span>
+        </div>
+        <input type="range" id="slider-iris-scale-max" min="1.0" max="1.8" step="0.05" value="1.35">
+      </div>
+      <div class="control-item">
+        <div class="label-row">
+          <span>閉じかけ時の瞳収縮率 (Iris Shrink)</span>
+          <span id="val-iris-scale-min">0.70x</span>
+        </div>
+        <input type="range" id="slider-iris-scale-min" min="0.3" max="1.0" step="0.05" value="0.70">
+      </div>
+    </div>
+
+    <!-- 瞳孔モーフ設定 -->
+    <div class="control-group">
+      <div class="group-title">
+        <span>瞳孔モーフ設定</span>
+      </div>
+      <div class="control-item">
+        <div class="label-row"><span>見開き時の瞳孔モーフ (Pupil Wide)</span></div>
+        <select id="select-morph-wide"><option value="">（モデル読み込み待ち）</option></select>
+      </div>
+      <div class="control-item">
+        <div class="label-row"><span>閉じかけ時の瞳孔モーフ (Pupil Shrink)</span></div>
+        <select id="select-morph-shrink"><option value="">（モデル読み込み待ち）</option></select>
+      </div>
+      <div class="control-item">
+        <div class="label-row">
+          <span>モーフ適用倍率</span>
+          <span id="val-morph-weight">1.0</span>
+        </div>
+        <input type="range" id="slider-morph-weight" min="0.1" max="2.0" step="0.05" value="1.0">
+      </div>
+    </div>
+
+    <!-- ハイライト設定 -->
+    <div class="control-group">
+      <div class="group-title">
+        <span>ハイライト設定</span>
+      </div>
+      <div class="control-item">
+        <div class="label-row"><span>対象マテリアル (Highlight)</span></div>
+        <select id="select-material-hl"><option value="">（モデル読み込み待ち）</option></select>
+      </div>
+      <div class="control-item">
+        <div class="label-row">
+          <span>連動揺れの強さ (Amplitude)</span>
+          <span id="val-hl-strength">0.08</span>
+        </div>
+        <input type="range" id="slider-hl-strength" min="0.0" max="0.25" step="0.005" value="0.08">
+        <p style="font-size:10px;color:#94a3b8;margin-top:6px;line-height:1.4;">
+          プレビューも書き出し後と同じ、Blink / EyeWide のハイライト頂点移動で表示します。<br>
+          0.08（既定値）は書き出し時・プレビューとも約2.4mmの基準移動です。<br>
+          A/I/U/E/O およびその他の表情モーフは変更しません。
+        </p>
+      </div>
+    </div>
+
+    <!-- 検出情報 -->
+    <div class="control-group">
+      <div class="group-title">
+        <span>解析ステータス</span>
+      </div>
+      <div class="mesh-info" id="target-bind-info">
+        モデル未読み込み
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 3D Scene Setup
+    const canvas = document.getElementById('canvas3d');
+    const container = document.getElementById('viewport-container');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(26, container.clientWidth / container.clientHeight, 0.1, 20.0);
+    camera.position.set(0, 1.4, 0.7);
+
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    const controls = new THREE.OrbitControls(camera, canvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 1.35, 0);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+    dirLight.position.set(0, 1.5, 1.5).normalize();
+    scene.add(dirLight);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    // 制御パラメータ & 生バイナリキャッシュ
+    let currentVrm = null;
+    let originalRawArrayBuffer = null; // 書き出し用の元バイナリ
+    let originalFileName = "model.vrm";
+
+    let autoBlink = false;
+    let autoBlinkTimer = 0;
+    let timeScale = 1.0;
+
+    let targetEyeOpenness = 0.5;
+    let currentEyeOpenness = 0.5;
+
+    let manualIrisScale = 1.0;
+    let hlSpring = { pos: 0, vel: 0 };
+
+    let allMeshesWithMorphs = [];
+    let allMaterials = [];
+    let selectedWideMorph = null;
+    let selectedShrinkMorph = null;
+    let selectedHlMatUuid = null;
+    let selectedIrisMatUuid = null;
+
+    let highlightVertexBindings = [];
+    let irisClusters = [];
+
+    // UI要素
+    const sliderEyeState = document.getElementById('slider-eye-state');
+    const sliderManualIrisScale = document.getElementById('slider-manual-iris-scale');
+    const sliderMorphWeight = document.getElementById('slider-morph-weight');
+    const sliderIrisScaleMax = document.getElementById('slider-iris-scale-max');
+    const sliderIrisScaleMin = document.getElementById('slider-iris-scale-min');
+    const sliderHlStrength = document.getElementById('slider-hl-strength');
+    const btnAutoBlink = document.getElementById('btn-autoblink');
+    const btnSlowMo = document.getElementById('btn-slowmo');
+    const dropzone = document.getElementById('dropzone-overlay');
+    const fileInput = document.getElementById('file-input');
+    const loadingMsg = document.getElementById('loading-msg');
+    const errorBox = document.getElementById('error-box');
+
+    const selectBaseExpression = document.getElementById('select-base-expression');
+    const selectMorphWide = document.getElementById('select-morph-wide');
+    const selectMorphShrink = document.getElementById('select-morph-shrink');
+    const selectMaterialHl = document.getElementById('select-material-hl');
+    const selectMaterialIris = document.getElementById('select-material-iris');
+    const btnSwitchModel = document.getElementById('btn-switch-model');
+    const btnExportVrm = document.getElementById('btn-export-vrm');
+
+    // UIイベント
+    sliderEyeState.addEventListener('input', (e) => {
+      targetEyeOpenness = parseFloat(e.target.value);
+      document.getElementById('val-eye-state').textContent = targetEyeOpenness.toFixed(2);
+    });
+    sliderManualIrisScale.addEventListener('input', (e) => {
+      manualIrisScale = parseFloat(e.target.value);
+      document.getElementById('val-manual-iris-scale').textContent = manualIrisScale.toFixed(2) + 'x';
+    });
+    sliderMorphWeight.addEventListener('input', (e) => {
+      document.getElementById('val-morph-weight').textContent = parseFloat(e.target.value).toFixed(2);
+    });
+    sliderIrisScaleMax.addEventListener('input', (e) => {
+      document.getElementById('val-iris-scale-max').textContent = parseFloat(e.target.value).toFixed(2) + 'x';
+    });
+    sliderIrisScaleMin.addEventListener('input', (e) => {
+      document.getElementById('val-iris-scale-min').textContent = parseFloat(e.target.value).toFixed(2) + 'x';
+    });
+    sliderHlStrength.addEventListener('input', (e) => {
+      document.getElementById('val-hl-strength').textContent = parseFloat(e.target.value).toFixed(3);
+    });
+
+    document.getElementById('p-wide').addEventListener('click', () => { targetEyeOpenness = 0.0; sliderEyeState.value = 0.0; document.getElementById('val-eye-state').textContent = '0.00'; });
+    document.getElementById('p-neutral').addEventListener('click', () => { targetEyeOpenness = 0.5; sliderEyeState.value = 0.5; document.getElementById('val-eye-state').textContent = '0.50'; });
+    document.getElementById('p-blink').addEventListener('click', () => { targetEyeOpenness = 1.0; sliderEyeState.value = 1.0; document.getElementById('val-eye-state').textContent = '1.00'; });
+
+    btnAutoBlink.addEventListener('click', () => {
+      autoBlink = !autoBlink;
+      btnAutoBlink.textContent = `自動まばたき: ${autoBlink ? 'ON' : 'OFF'}`;
+      btnAutoBlink.style.background = autoBlink ? '#065f46' : '#334155';
+    });
+
+    btnSlowMo.addEventListener('click', () => {
+      timeScale = (timeScale === 1.0) ? 0.25 : 1.0;
+      btnSlowMo.textContent = `速度: ${timeScale}x`;
+    });
+
+    // 別のVRMモデルへの差し替えトリガー
+    btnSwitchModel.addEventListener('click', () => {
+      fileInput.value = '';
+      fileInput.click();
+    });
+
+    selectMorphWide.addEventListener('change', (e) => {
+      selectedWideMorph = allMeshesWithMorphs.find(m => m.id === e.target.value) || null;
+    });
+    selectMorphShrink.addEventListener('change', (e) => {
+      selectedShrinkMorph = allMeshesWithMorphs.find(m => m.id === e.target.value) || null;
+    });
+    selectMaterialHl.addEventListener('change', (e) => {
+      selectedHlMatUuid = e.target.value;
+      rebuildVertexBindings();
+    });
+    selectMaterialIris.addEventListener('change', (e) => {
+      resetIrisPositions();
+      selectedIrisMatUuid = e.target.value;
+      rebuildVertexBindings();
+    });
+
+    // --- 安全なメモリ解放（モデル差し替え用） ---
+    function cleanupCurrentModel() {
+      if (!currentVrm) return;
+      scene.remove(currentVrm.scene);
+      currentVrm.scene.traverse((obj) => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach(m => {
+            if (m.map) m.map.dispose();
+            m.dispose();
+          });
+        }
+      });
+      currentVrm = null;
+      highlightVertexBindings = [];
+      irisClusters = [];
+    }
+
+    // VRM読み込み
+    function loadVRMFromArrayBuffer(buffer, fileName) {
+      errorBox.style.display = 'none';
+      loadingMsg.style.display = 'block';
+
+      cleanupCurrentModel(); // 前のモデルを安全に破棄
+      originalRawArrayBuffer = buffer.slice(0); // 書き出し用に複製保持
+      if (fileName) originalFileName = fileName;
+
+      try {
+        const loader = new THREE.GLTFLoader();
+        loader.parse(buffer, '', (gltf) => {
+          THREE.VRM.from(gltf).then((vrm) => {
+            currentVrm = vrm;
+
+            vrm.scene.rotation.y = Math.PI;
+            scene.add(vrm.scene);
+            vrm.scene.updateMatrixWorld(true);
+
+            if (vrm.humanoid) {
+              const head = vrm.humanoid.getBoneNode(THREE.VRMSchema.HumanoidBoneName.Head);
+              if (head) {
+                const pos = new THREE.Vector3();
+                head.getWorldPosition(pos);
+                camera.position.set(pos.x, pos.y + 0.05, pos.z + 0.38);
+                controls.target.set(pos.x, pos.y + 0.035, pos.z);
+                controls.update();
+              }
+            }
+
+            populateSelectors(vrm);
+            loadingMsg.style.display = 'none';
+            dropzone.classList.add('hidden');
+          }).catch((err) => {
+            showError('VRM解析エラー: ' + err.message);
+          });
+        }, (err) => {
+          showError('GLTFパースエラー: 有効なVRMか確認してください。');
+        });
+      } catch (err) {
+        showError('実行時エラー: ' + err.message);
+      }
+    }
+
+    function showError(msg) {
+      loadingMsg.style.display = 'none';
+      errorBox.style.display = 'block';
+      errorBox.textContent = msg;
+    }
+
+    function classifyMaterial(name) {
+      const lower = name.toLowerCase();
+      if (lower.includes('eyeline') || lower.includes('line') || lower.includes('eyelash') || lower.includes('lash')) {
+        return { tag: '[アイライン/まつ毛]', isIris: false, isHl: false };
+      }
+      if (lower.includes('eyewhite') || lower.includes('white')) {
+        return { tag: '[白目]', isIris: false, isHl: false };
+      }
+      if (lower.includes('highlight') || lower.includes('eye_hl') || lower.includes('hilight')) {
+        return { tag: '[ハイライト]', isIris: false, isHl: true };
+      }
+      if (lower.includes('iris') || lower.includes('eye_iris') || lower.includes('pupil') || lower.includes('eye')) {
+        return { tag: '[瞳/黒目★]', isIris: true, isHl: false };
+      }
+      return { tag: '[その他]', isIris: false, isHl: false };
+    }
+
+    function populateSelectors(vrm) {
+      allMeshesWithMorphs = [];
+      allMaterials = [];
+
+      selectMorphWide.innerHTML = '<option value="">(なし / スキップ)</option>';
+      selectMorphShrink.innerHTML = '<option value="">(なし / スキップ)</option>';
+      selectMaterialHl.innerHTML = '<option value="">(なし / スキップ)</option>';
+      selectMaterialIris.innerHTML = '<option value="">(なし / スキップ)</option>';
+
+      const registeredMatUuids = new Set();
+      let bestHlMatUuid = null;
+      let bestIrisMatUuid = null;
+
+      vrm.scene.traverse((obj) => {
+        if (obj.isMesh && obj.morphTargetDictionary) {
+          for (let name in obj.morphTargetDictionary) {
+            const id = `${obj.uuid}_${name}`;
+            const entry = {
+              id: id,
+              mesh: obj,
+              name: name,
+              index: obj.morphTargetDictionary[name]
+            };
+            allMeshesWithMorphs.push(entry);
+
+            const optW = document.createElement('option');
+            optW.value = id;
+            optW.textContent = `${obj.name}: ${name}`;
+            selectMorphWide.appendChild(optW);
+
+            const optS = document.createElement('option');
+            optS.value = id;
+            optS.textContent = `${obj.name}: ${name}`;
+            selectMorphShrink.appendChild(optS);
+
+            const lower = name.toLowerCase();
+            if (lower.includes('pupil') && (lower.includes('max') || lower.includes('wide') || lower.includes('open'))) {
+              selectMorphWide.value = id;
+              selectedWideMorph = entry;
+            }
+            if (lower.includes('pupil') && (lower.includes('min') || lower.includes('shrink') || lower.includes('close'))) {
+              selectMorphShrink.value = id;
+              selectedShrinkMorph = entry;
+            }
+          }
+        }
+
+        if (obj.isMesh && obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach((mat) => {
+            if (!mat || registeredMatUuids.has(mat.uuid)) return;
+            registeredMatUuids.add(mat.uuid);
+
+            const classification = classifyMaterial(mat.name || '');
+
+            allMaterials.push({
+              id: mat.uuid,
+              material: mat,
+              name: mat.name || 'Unnamed',
+              classification: classification
+            });
+
+            const optM1 = document.createElement('option');
+            optM1.value = mat.uuid;
+            optM1.textContent = `${classification.tag} ${mat.name}`;
+            selectMaterialHl.appendChild(optM1);
+
+            const optM2 = document.createElement('option');
+            optM2.value = mat.uuid;
+            optM2.textContent = `${classification.tag} ${mat.name}`;
+            selectMaterialIris.appendChild(optM2);
+
+            if (classification.isHl && !bestHlMatUuid) {
+              bestHlMatUuid = mat.uuid;
+            }
+            if (classification.isIris && !bestIrisMatUuid) {
+              bestIrisMatUuid = mat.uuid;
+            }
+          });
+        }
+      });
+
+      if (bestHlMatUuid) {
+        selectMaterialHl.value = bestHlMatUuid;
+        selectedHlMatUuid = bestHlMatUuid;
+      }
+      if (bestIrisMatUuid) {
+        selectMaterialIris.value = bestIrisMatUuid;
+        selectedIrisMatUuid = bestIrisMatUuid;
+      }
+      rebuildVertexBindings();
+    }
+
+    function resetIrisPositions() {
+      for (let c = 0; c < irisClusters.length; c++) {
+        const cluster = irisClusters[c];
+        const posAttr = cluster.posAttr;
+        const indices = cluster.indices;
+        const initialPos = cluster.initialPos;
+
+        for (let i = 0; i < indices.length; i++) {
+          const vIdx = indices[i];
+          posAttr.setXYZ(vIdx, initialPos[i * 3], initialPos[i * 3 + 1], initialPos[i * 3 + 2]);
+        }
+        posAttr.needsUpdate = true;
+      }
+    }
+
+    function rebuildVertexBindings() {
+      highlightVertexBindings = [];
+      if (currentVrm && selectedHlMatUuid) {
+        currentVrm.scene.traverse((obj) => {
+          if (!obj.isMesh || !obj.geometry || !obj.geometry.attributes.position) return;
+          const geom = obj.geometry;
+          const posAttr = geom.attributes.position;
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          const indices = getIndicesForMaterial(geom, mats, selectedHlMatUuid);
+
+          if (indices.length > 0) {
+            // 書き出し側と同様、左右のハイライトを別クラスタとして扱う。
+            let avgX = 0;
+            indices.forEach(idx => avgX += posAttr.getX(idx));
+            avgX /= indices.length;
+            const sideGroups = [
+              indices.filter(idx => posAttr.getX(idx) >= avgX),
+              indices.filter(idx => posAttr.getX(idx) < avgX)
+            ];
+
+            sideGroups.forEach(clusterIndices => {
+              if (clusterIndices.length === 0) return;
+              let cx = 0;
+              const initialPos = new Float32Array(clusterIndices.length * 3);
+              for (let i = 0; i < clusterIndices.length; i++) {
+                const idx = clusterIndices[i];
+                const x = posAttr.getX(idx);
+                const y = posAttr.getY(idx);
+                const z = posAttr.getZ(idx);
+                initialPos[i * 3] = x;
+                initialPos[i * 3 + 1] = y;
+                initialPos[i * 3 + 2] = z;
+                cx += x;
+              }
+              cx /= clusterIndices.length;
+              highlightVertexBindings.push({ geom, posAttr, indices: clusterIndices, initialPos, centerX: cx });
+            });
+          }
+        });
+      }
+
+      irisClusters = [];
+      if (currentVrm && selectedIrisMatUuid) {
+        currentVrm.scene.traverse((obj) => {
+          if (!obj.isMesh || !obj.geometry || !obj.geometry.attributes.position) return;
+          const geom = obj.geometry;
+          const posAttr = geom.attributes.position;
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          const indices = getIndicesForMaterial(geom, mats, selectedIrisMatUuid);
+
+          if (indices.length > 0) {
+            let avgX = 0;
+            indices.forEach(idx => avgX += posAttr.getX(idx));
+            avgX /= indices.length;
+
+            const leftIndices = [];
+            const rightIndices = [];
+            indices.forEach(idx => {
+              if (posAttr.getX(idx) >= avgX) leftIndices.push(idx);
+              else rightIndices.push(idx);
+            });
+
+            [leftIndices, rightIndices].forEach(clusterIndices => {
+              if (clusterIndices.length === 0) return;
+              let cX = 0, cY = 0, cZ = 0;
+              const initialPos = new Float32Array(clusterIndices.length * 3);
+
+              for (let i = 0; i < clusterIndices.length; i++) {
+                const idx = clusterIndices[i];
+                const x = posAttr.getX(idx);
+                const y = posAttr.getY(idx);
+                const z = posAttr.getZ(idx);
+                initialPos[i * 3] = x;
+                initialPos[i * 3 + 1] = y;
+                initialPos[i * 3 + 2] = z;
+                cX += x; cY += y; cZ += z;
+              }
+              cX /= clusterIndices.length;
+              cY /= clusterIndices.length;
+              cZ /= clusterIndices.length;
+
+              irisClusters.push({
+                geom: geom,
+                posAttr: posAttr,
+                indices: clusterIndices,
+                initialPos: initialPos,
+                center: new THREE.Vector3(cX, cY, cZ)
+              });
+            });
+          }
+        });
+      }
+
+      const selHl = allMaterials.find(m => m.id === selectedHlMatUuid);
+      const selIris = allMaterials.find(m => m.id === selectedIrisMatUuid);
+
+      const bindInfo = document.getElementById('target-bind-info');
+      bindInfo.replaceChildren();
+
+      const hlLine = document.createElement('div');
+      hlLine.append('ハイライト対象: ');
+      const hlName = document.createElement('b');
+      hlName.textContent = selHl ? selHl.name : '未選択';
+      hlLine.append(hlName, ` (${highlightVertexBindings.reduce((a, b) => a + b.indices.length, 0)} 頂点)`);
+
+      const irisLine = document.createElement('div');
+      irisLine.append('瞳(Iris)対象: ');
+      const irisName = document.createElement('b');
+      irisName.textContent = selIris ? selIris.name : '未選択';
+      irisLine.append(irisName, ` (${irisClusters.length} クラスタ / ${irisClusters.reduce((a, b) => a + b.indices.length, 0)} 頂点)`);
+
+      bindInfo.append(hlLine, irisLine);
+    }
+
+    function getIndicesForMaterial(geom, mats, targetMatUuid) {
+      const targetIndices = [];
+      if (Array.isArray(mats) && geom.groups && geom.groups.length > 0) {
+        geom.groups.forEach((group) => {
+          const groupMat = mats[group.materialIndex];
+          if (groupMat && groupMat.uuid === targetMatUuid) {
+            const start = group.start;
+            const count = group.count;
+            if (geom.index) {
+              for (let i = start; i < start + count; i++) targetIndices.push(geom.index.getX(i));
+            } else {
+              for (let i = start; i < start + count; i++) targetIndices.push(i);
+            }
+          }
+        });
+      } else if (mats.some(m => m && m.uuid === targetMatUuid)) {
+        for (let i = 0; i < geom.attributes.position.count; i++) targetIndices.push(i);
+      }
+      return Array.from(new Set(targetIndices));
+    }
+
+    // --- VRM 0.x morph target 局所パッチ・エクスポートエンジン ---
+    // 既存 morph target の「瞳マテリアルに属する頂点」だけを書き換える。
+    // A/I/U/E/O 等の口形や他の表情 target は一切変更しない。
+
+    function getAccessorLayout(gltf, accessorIndex, binDataView) {
+      const acc = gltf.accessors && gltf.accessors[accessorIndex];
+      if (!acc) throw new Error(`Accessor ${accessorIndex} が見つかりません。`);
+      if (acc.sparse) throw new Error('Sparse accessor には安全上対応していません。');
+      const bv = gltf.bufferViews && gltf.bufferViews[acc.bufferView];
+      if (!bv) throw new Error(`BufferView ${acc.bufferView} が見つかりません。`);
+      const compBytes = {5120:1, 5121:1, 5122:2, 5123:2, 5125:4, 5126:4}[acc.componentType];
+      const compCount = {SCALAR:1, VEC2:2, VEC3:3, VEC4:4, MAT2:4, MAT3:9, MAT4:16}[acc.type];
+      if (!compBytes || !compCount) throw new Error('未対応のAccessor形式です。');
+      const stride = bv.byteStride || (compBytes * compCount);
+      const offset = (bv.byteOffset || 0) + (acc.byteOffset || 0);
+      return { acc, bv, compBytes, compCount, stride, offset, binDataView };
+    }
+
+    function readComponent(layout, elementIndex, componentIndex) {
+      const p = layout.offset + elementIndex * layout.stride + componentIndex * layout.compBytes;
+      switch (layout.acc.componentType) {
+        case 5120: return layout.binDataView.getInt8(p);
+        case 5121: return layout.binDataView.getUint8(p);
+        case 5122: return layout.binDataView.getInt16(p, true);
+        case 5123: return layout.binDataView.getUint16(p, true);
+        case 5125: return layout.binDataView.getUint32(p, true);
+        case 5126: return layout.binDataView.getFloat32(p, true);
+        default: throw new Error('未対応componentTypeです。');
+      }
+    }
+
+    function writeFloatComponent(layout, elementIndex, componentIndex, value) {
+      if (layout.acc.componentType !== 5126) throw new Error('POSITION morph が FLOAT ではないため安全に変更できません。');
+      const p = layout.offset + elementIndex * layout.stride + componentIndex * 4;
+      layout.binDataView.setFloat32(p, value, true);
+    }
+
+    function getPrimitiveVertexIndices(gltf, primitive, binDataView) {
+      const result = [];
+      if (primitive.indices !== undefined) {
+        const il = getAccessorLayout(gltf, primitive.indices, binDataView);
+        for (let i = 0; i < il.acc.count; i++) result.push(readComponent(il, i, 0));
+      } else {
+        const pl = getAccessorLayout(gltf, primitive.attributes.POSITION, binDataView);
+        for (let i = 0; i < pl.acc.count; i++) result.push(i);
+      }
+      return Array.from(new Set(result));
+    }
+
+    function findIrisPrimitive(gltf, meshIndex, irisMaterialName) {
+      const mesh = gltf.meshes && gltf.meshes[meshIndex];
+      if (!mesh) return null;
+      for (const primitive of (mesh.primitives || [])) {
+        const mat = gltf.materials && gltf.materials[primitive.material];
+        if (mat && mat.name === irisMaterialName && primitive.attributes && primitive.attributes.POSITION !== undefined) {
+          return primitive;
+        }
+      }
+      return null;
+    }
+
+    function splitIrisClusters(indices, baseLayout) {
+      if (!indices.length) return [];
+      let avgX = 0;
+      for (const idx of indices) avgX += readComponent(baseLayout, idx, 0);
+      avgX /= indices.length;
+      const a = [], b = [];
+      for (const idx of indices) {
+        const x = readComponent(baseLayout, idx, 0);
+        (x >= avgX ? a : b).push(idx);
+      }
+      return [a, b].filter(c => c.length > 0).map(indices2 => {
+        let cx = 0, cy = 0;
+        for (const idx of indices2) {
+          cx += readComponent(baseLayout, idx, 0);
+          cy += readComponent(baseLayout, idx, 1);
+        }
+        cx /= indices2.length; cy /= indices2.length;
+        return { indices: indices2, cx, cy };
+      });
+    }
+
+    function chooseSideCluster(clusters, baseLayout, targetLayout) {
+      // EyeWideLeft/Right や Blink_L/R の既存変形がある側を自動判定。
+      let weightedX = 0, total = 0;
+      for (let i = 0; i < targetLayout.acc.count; i++) {
+        const dx = readComponent(targetLayout, i, 0);
+        const dy = readComponent(targetLayout, i, 1);
+        const dz = readComponent(targetLayout, i, 2);
+        const w = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        if (w > 1e-7) {
+          weightedX += readComponent(baseLayout, i, 0) * w;
+          total += w;
+        }
+      }
+      if (total <= 0 || clusters.length < 2) return clusters[0] || null;
+      const tx = weightedX / total;
+      return clusters.reduce((best, c) => Math.abs(c.cx - tx) < Math.abs(best.cx - tx) ? c : best, clusters[0]);
+    }
+
+    function applyAbsoluteIrisScale(gltf, binDataView, meshIndex, targetIndex, irisMaterialName, desiredScale, sideMode) {
+      const mesh = gltf.meshes && gltf.meshes[meshIndex];
+      if (!mesh) return 0;
+      const irisPrim = findIrisPrimitive(gltf, meshIndex, irisMaterialName);
+      if (!irisPrim) return 0;
+      const anyPrim = (mesh.primitives || []).find(p => p.targets && p.targets[targetIndex] && p.targets[targetIndex].POSITION !== undefined);
+      if (!anyPrim) return 0;
+
+      const baseLayout = getAccessorLayout(gltf, irisPrim.attributes.POSITION, binDataView);
+      const targetAccessorIndex = anyPrim.targets[targetIndex].POSITION;
+      const targetLayout = getAccessorLayout(gltf, targetAccessorIndex, binDataView);
+      if (baseLayout.acc.type !== 'VEC3' || targetLayout.acc.type !== 'VEC3') throw new Error('POSITION が VEC3 ではありません。');
+      if (baseLayout.acc.count !== targetLayout.acc.count) throw new Error('Base/Target頂点数が一致しません。');
+
+      const irisIndices = getPrimitiveVertexIndices(gltf, irisPrim, binDataView);
+      const clusters = splitIrisClusters(irisIndices, baseLayout);
+      let useClusters = clusters;
+      if (sideMode === 'autoSide') {
+        const c = chooseSideCluster(clusters, baseLayout, targetLayout);
+        useClusters = c ? [c] : [];
+      }
+
+      let changed = 0;
+      for (const cluster of useClusters) {
+        // 現在のtarget内での瞳中心・半径を測り、既存の移動成分を保ったまま
+        // baseに対する絶対倍率 desiredScale へ補正する。
+        let curCx = 0, curCy = 0, baseR2 = 0, curR2 = 0;
+        for (const idx of cluster.indices) {
+          const bx = readComponent(baseLayout, idx, 0);
+          const by = readComponent(baseLayout, idx, 1);
+          const dx = readComponent(targetLayout, idx, 0);
+          const dy = readComponent(targetLayout, idx, 1);
+          curCx += bx + dx; curCy += by + dy;
+        }
+        curCx /= cluster.indices.length; curCy /= cluster.indices.length;
+
+        for (const idx of cluster.indices) {
+          const bx = readComponent(baseLayout, idx, 0);
+          const by = readComponent(baseLayout, idx, 1);
+          const dx = readComponent(targetLayout, idx, 0);
+          const dy = readComponent(targetLayout, idx, 1);
+          const cx = bx + dx, cy = by + dy;
+          baseR2 += (bx-cluster.cx)*(bx-cluster.cx) + (by-cluster.cy)*(by-cluster.cy);
+          curR2 += (cx-curCx)*(cx-curCx) + (cy-curCy)*(cy-curCy);
+        }
+        const currentScale = baseR2 > 1e-12 ? Math.sqrt(curR2 / baseR2) : 1.0;
+        const ratio = currentScale > 1e-6 ? desiredScale / currentScale : desiredScale;
+
+        for (const idx of cluster.indices) {
+          const bx = readComponent(baseLayout, idx, 0);
+          const by = readComponent(baseLayout, idx, 1);
+          const dx = readComponent(targetLayout, idx, 0);
+          const dy = readComponent(targetLayout, idx, 1);
+          const cx = bx + dx, cy = by + dy;
+          const nx = curCx + (cx - curCx) * ratio;
+          const ny = curCy + (cy - curCy) * ratio;
+          writeFloatComponent(targetLayout, idx, 0, nx - bx);
+          writeFloatComponent(targetLayout, idx, 1, ny - by);
+          // Z差分は既存値をそのまま保持
+          changed++;
+        }
+      }
+      return changed;
+    }
+
+    function findMaterialPrimitive(gltf, meshIndex, materialName) {
+      const mesh = gltf.meshes && gltf.meshes[meshIndex];
+      if (!mesh) return null;
+      for (const primitive of (mesh.primitives || [])) {
+        const mat = gltf.materials && gltf.materials[primitive.material];
+        if (mat && mat.name === materialName && primitive.attributes && primitive.attributes.POSITION !== undefined) {
+          return primitive;
+        }
+      }
+      return null;
+    }
+
+    // ハイライトは、参考VRMの A/I/U/E/O 差分と同じく
+    // 「対象頂点だけに局所的なPOSITION差分を持たせる」方式で焼き込む。
+    // 動的なスプリングそのものはVRM 0.xへ保存できないため、
+    // Blink / EyeWide の補間中に視認できる移動として残す。
+    function applyHighlightOffset(gltf, binDataView, meshIndex, targetIndex, highlightMaterialName, offsetY, inwardX, sideMode) {
+      const mesh = gltf.meshes && gltf.meshes[meshIndex];
+      if (!mesh) return 0;
+      const hlPrim = findMaterialPrimitive(gltf, meshIndex, highlightMaterialName);
+      if (!hlPrim || !hlPrim.targets || !hlPrim.targets[targetIndex] || hlPrim.targets[targetIndex].POSITION === undefined) return 0;
+
+      const baseLayout = getAccessorLayout(gltf, hlPrim.attributes.POSITION, binDataView);
+      const targetLayout = getAccessorLayout(gltf, hlPrim.targets[targetIndex].POSITION, binDataView);
+      if (baseLayout.acc.type !== 'VEC3' || targetLayout.acc.type !== 'VEC3') throw new Error('ハイライトPOSITIONがVEC3ではありません。');
+      if (baseLayout.acc.count !== targetLayout.acc.count) throw new Error('ハイライトBase/Target頂点数が一致しません。');
+
+      const hlIndices = getPrimitiveVertexIndices(gltf, hlPrim, binDataView);
+      const clusters = splitIrisClusters(hlIndices, baseLayout);
+      let useClusters = clusters;
+      if (sideMode === 'autoSide') {
+        const c = chooseSideCluster(clusters, baseLayout, targetLayout);
+        useClusters = c ? [c] : [];
+      }
+
+      let changed = 0;
+      for (const cluster of useClusters) {
+        // inwardX は両目とも顔中心方向へ寄せる量。
+        // 左右判定は各クラスタ中心Xの符号から行う。
+        const xSign = cluster.cx >= 0 ? -1 : 1;
+        for (const idx of cluster.indices) {
+          const dx = readComponent(targetLayout, idx, 0);
+          const dy = readComponent(targetLayout, idx, 1);
+          writeFloatComponent(targetLayout, idx, 0, dx + xSign * inwardX);
+          writeFloatComponent(targetLayout, idx, 1, dy + offsetY);
+          // Z差分は既存値を保持
+          changed++;
+        }
+      }
+      return changed;
+    }
+
+    function patchGroupHighlight(gltf, binDataView, group, highlightMaterialName, offsetY, inwardX, sideMode) {
+      let changed = 0;
+      for (const bind of (group.binds || [])) {
+        if (typeof bind.mesh !== 'number' || typeof bind.index !== 'number') continue;
+        changed += applyHighlightOffset(gltf, binDataView, bind.mesh, bind.index, highlightMaterialName, offsetY, inwardX, sideMode);
+      }
+      return changed;
+    }
+
+    function patchGroupIris(gltf, binDataView, group, irisMaterialName, desiredScale, sideMode) {
+      let changed = 0;
+      for (const bind of (group.binds || [])) {
+        if (typeof bind.mesh !== 'number' || typeof bind.index !== 'number') continue;
+        changed += applyAbsoluteIrisScale(gltf, binDataView, bind.mesh, bind.index, irisMaterialName, desiredScale, sideMode);
+      }
+      return changed;
+    }
+
+    function exportSafeVRM() {
+      if (!originalRawArrayBuffer) {
+        alert('書き出すVRMモデルが存在しません。');
+        return;
+      }
+
+      try {
+        const srcView = new DataView(originalRawArrayBuffer);
+        if (srcView.getUint32(0, true) !== 0x46546C67) throw new Error('GLB形式ではありません。');
+
+        const jsonChunkLen = srcView.getUint32(12, true);
+        const jsonChunkBytes = new Uint8Array(originalRawArrayBuffer, 20, jsonChunkLen);
+        const jsonStr = new TextDecoder('utf-8').decode(jsonChunkBytes).replace(/[\u0000 ]+$/g, '');
+        const gltf = JSON.parse(jsonStr);
+        if (!gltf.extensions || !gltf.extensions.VRM) throw new Error('VRM 0.x 拡張データが見つかりません。');
+
+        const binHeaderPos = 20 + jsonChunkLen;
+        if (binHeaderPos + 8 > originalRawArrayBuffer.byteLength) throw new Error('BINチャンクが見つかりません。');
+        const binChunkLen = srcView.getUint32(binHeaderPos, true);
+        const binChunkType = srcView.getUint32(binHeaderPos + 4, true);
+        const originalBin = new Uint8Array(originalRawArrayBuffer, binHeaderPos + 8, binChunkLen);
+        const mutableBin = new Uint8Array(binChunkLen);
+        mutableBin.set(originalBin);
+        const binDataView = new DataView(mutableBin.buffer);
+
+        const selIris = allMaterials.find(m => m.id === selectedIrisMatUuid);
+        if (!selIris || !selIris.name) throw new Error('瞳(Iris)マテリアルを選択してください。');
+        const irisMaterialName = selIris.name;
+        const selHl = allMaterials.find(m => m.id === selectedHlMatUuid);
+        if (!selHl || !selHl.name) throw new Error('ハイライト(Highlight)マテリアルを選択してください。');
+        const highlightMaterialName = selHl.name;
+        const groups = (((gltf.extensions || {}).VRM || {}).blendShapeMaster || {}).blendShapeGroups || [];
+
+        const blinkScale = parseFloat(sliderIrisScaleMin.value);
+        const wideScale = parseFloat(sliderIrisScaleMax.value);
+        const hlStrength = parseFloat(sliderHlStrength.value);
+        // 参考VRMの U/O で見られる局所頂点移動を参考に、
+        // UIのAmplitudeをモデル空間の移動量へ変換する。
+        // 0.08(既定値) -> 約2.4mm。
+        const hlMove = hlStrength * 0.03;
+        const hlInward = hlMove * 0.12;
+        let blinkChanged = 0, wideChanged = 0, wideFound = 0;
+        let blinkHlChanged = 0, wideHlChanged = 0;
+
+        // 閉眼: Blinkは両目、Blink_L / Blink_R は既存変形側だけ。
+        // ハイライトは少し下＋中心方向へ移動させ、補間中にも動きが見えるようにする。
+        for (const g of groups) {
+          const n = (g.name || '').toLowerCase();
+          const p = (g.presetName || '').toLowerCase();
+          if (n === 'blink' || p === 'blink') {
+            blinkChanged += patchGroupIris(gltf, binDataView, g, irisMaterialName, blinkScale, 'both');
+            blinkHlChanged += patchGroupHighlight(gltf, binDataView, g, highlightMaterialName, -hlMove, hlInward, 'both');
+          } else if (n === 'blink_l' || n === 'blink_r' || p === 'blink_l' || p === 'blink_r') {
+            blinkChanged += patchGroupIris(gltf, binDataView, g, irisMaterialName, blinkScale, 'autoSide');
+            blinkHlChanged += patchGroupHighlight(gltf, binDataView, g, highlightMaterialName, -hlMove, hlInward, 'autoSide');
+          }
+        }
+
+        // 見開き: PerfectSync の EyeWideLeft / EyeWideRight だけ。
+        // ハイライトは閉眼と逆方向へ少し上げ、動きを視認しやすくする。
+        for (const g of groups) {
+          const n = (g.name || '').toLowerCase();
+          if (n === 'eyewideleft' || n === 'eyewideright') {
+            wideFound++;
+            wideChanged += patchGroupIris(gltf, binDataView, g, irisMaterialName, wideScale, 'autoSide');
+            wideHlChanged += patchGroupHighlight(gltf, binDataView, g, highlightMaterialName, hlMove * 0.75, hlInward * 0.5, 'autoSide');
+          }
+        }
+
+        if (blinkChanged === 0 && wideChanged === 0 && blinkHlChanged === 0 && wideHlChanged === 0) {
+          throw new Error('対象となる Blink / EyeWide モーフの瞳・ハイライト頂点を変更できませんでした。対象マテリアルを確認してください。');
+        }
+
+        // JSONは構造変更しないが、元GLBを再構築してBIN差分を確実に反映する。
+        const modifiedJsonBytes = new TextEncoder().encode(JSON.stringify(gltf));
+        const paddedJsonLen = (modifiedJsonBytes.length + 3) & ~3;
+        const finalJsonBytes = new Uint8Array(paddedJsonLen);
+        finalJsonBytes.fill(0x20);
+        finalJsonBytes.set(modifiedJsonBytes);
+
+        const totalNewLength = 12 + 8 + paddedJsonLen + 8 + binChunkLen;
+        const newGlbBuffer = new ArrayBuffer(totalNewLength);
+        const newView = new DataView(newGlbBuffer);
+        const newBytes = new Uint8Array(newGlbBuffer);
+        newView.setUint32(0, 0x46546C67, true);
+        newView.setUint32(4, 2, true);
+        newView.setUint32(8, totalNewLength, true);
+        newView.setUint32(12, paddedJsonLen, true);
+        newView.setUint32(16, 0x4E4F534A, true);
+        newBytes.set(finalJsonBytes, 20);
+        const newBinStart = 20 + paddedJsonLen;
+        newView.setUint32(newBinStart, binChunkLen, true);
+        newView.setUint32(newBinStart + 4, binChunkType, true);
+        newBytes.set(mutableBin, newBinStart + 8);
+
+        const blob = new Blob([newGlbBuffer], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const outName = originalFileName.replace(/\.(vrm|glb)$/i, '') + '_eyeReactive.vrm';
+        a.href = url;
+        a.download = outName;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+        const wideMsg = wideFound > 0
+          ? `PerfectSync EyeWide: ${wideScale.toFixed(2)}x (${wideChanged}頂点を局所変更)`
+          : 'PerfectSync EyeWide: 見つからないため変更なし';
+        alert(`保存しました: ${outName}\n・Blink瞳縮小: ${blinkScale.toFixed(2)}x (${blinkChanged}頂点を局所変更)\n・Blinkハイライト移動: ${blinkHlChanged}頂点\n・${wideMsg}\n・EyeWideハイライト移動: ${wideHlChanged}頂点\n・A/I/U/E/O およびその他の表情差分は変更していません。`);
+      } catch (err) {
+        alert('書き出しに失敗しました: ' + err.message);
+        console.error(err);
+      }
+    }
+
+    btnExportVrm.addEventListener('click', exportSafeVRM);
+
+    // アニメーションループ
+    let lastTime = performance.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const now = performance.now();
+      const rawDt = Math.min((now - lastTime) / 1000, 0.1);
+      const dt = rawDt * timeScale;
+      lastTime = now;
+
+      if (autoBlink) {
+        autoBlinkTimer += dt;
+        if (autoBlinkTimer > 3.0) {
+          const t = autoBlinkTimer - 3.0;
+          if (t < 0.12) {
+            targetEyeOpenness = 0.5 + (0.5 * (t / 0.12));
+          } else if (t < 0.24) {
+            targetEyeOpenness = 1.0 - (0.5 * ((t - 0.12) / 0.12));
+          } else {
+            targetEyeOpenness = 0.5;
+            autoBlinkTimer = (Math.random() - 0.5) * 0.6;
+          }
+          sliderEyeState.value = targetEyeOpenness;
+          document.getElementById('val-eye-state').textContent = targetEyeOpenness.toFixed(2);
+        }
+      }
+
+      currentEyeOpenness += (targetEyeOpenness - currentEyeOpenness) * Math.min(dt * 15.0, 1.0);
+
+      if (currentVrm) {
+        currentVrm.update(dt);
+
+        // 1. ベース表情の適用
+        const basePreset = selectBaseExpression.value;
+        if (currentVrm.blendShapeProxy) {
+          const presets = [
+            THREE.VRMSchema.BlendShapePresetName.Joy,
+            THREE.VRMSchema.BlendShapePresetName.Angry,
+            THREE.VRMSchema.BlendShapePresetName.Sorrow,
+            THREE.VRMSchema.BlendShapePresetName.Fun
+          ];
+          presets.forEach(p => currentVrm.blendShapeProxy.setValue(p, 0.0));
+
+          if (basePreset === 'joy') currentVrm.blendShapeProxy.setValue(THREE.VRMSchema.BlendShapePresetName.Joy, 1.0);
+          if (basePreset === 'angry') currentVrm.blendShapeProxy.setValue(THREE.VRMSchema.BlendShapePresetName.Angry, 1.0);
+          if (basePreset === 'sorrow') currentVrm.blendShapeProxy.setValue(THREE.VRMSchema.BlendShapePresetName.Sorrow, 1.0);
+          if (basePreset === 'fun') currentVrm.blendShapeProxy.setValue(THREE.VRMSchema.BlendShapePresetName.Fun, 1.0);
+
+          const blinkWeight = Math.max(0, (currentEyeOpenness - 0.5) * 2.0);
+          currentVrm.blendShapeProxy.setValue(THREE.VRMSchema.BlendShapePresetName.Blink, blinkWeight);
+          currentVrm.blendShapeProxy.update();
+        }
+
+        // 2. 瞳孔モーフの適用
+        const blinkWeight = Math.max(0, (currentEyeOpenness - 0.5) * 2.0);
+        const maxMorphGain = parseFloat(sliderMorphWeight.value);
+        const wideWeight = Math.max(0, (0.5 - currentEyeOpenness) * 2.0) * maxMorphGain;
+        if (selectedWideMorph && selectedWideMorph.mesh && selectedWideMorph.mesh.morphTargetInfluences) {
+          selectedWideMorph.mesh.morphTargetInfluences[selectedWideMorph.index] = wideWeight;
+        }
+        const shrinkWeight = blinkWeight * maxMorphGain;
+        if (selectedShrinkMorph && selectedShrinkMorph.mesh && selectedShrinkMorph.mesh.morphTargetInfluences) {
+          selectedShrinkMorph.mesh.morphTargetInfluences[selectedShrinkMorph.index] = shrinkWeight;
+        }
+
+        // 3. 瞳全体（黒目）の直接スケーリング
+        const irisScaleMax = parseFloat(sliderIrisScaleMax.value);
+        const irisScaleMin = parseFloat(sliderIrisScaleMin.value);
+        let dynamicScale = 1.0;
+
+        if (currentEyeOpenness < 0.5) {
+          const t = (0.5 - currentEyeOpenness) / 0.5;
+          dynamicScale = 1.0 + (irisScaleMax - 1.0) * t;
+        } else {
+          const t = (currentEyeOpenness - 0.5) / 0.5;
+          dynamicScale = 1.0 - (1.0 - irisScaleMin) * t;
+        }
+
+        const finalIrisScale = dynamicScale * manualIrisScale;
+
+        for (let c = 0; c < irisClusters.length; c++) {
+          const cluster = irisClusters[c];
+          const posAttr = cluster.posAttr;
+          const indices = cluster.indices;
+          const initialPos = cluster.initialPos;
+          const cx = cluster.center.x;
+          const cy = cluster.center.y;
+
+          for (let i = 0; i < indices.length; i++) {
+            const vIdx = indices[i];
+            const origX = initialPos[i * 3];
+            const origY = initialPos[i * 3 + 1];
+
+            const newX = cx + (origX - cx) * finalIrisScale;
+            const newY = cy + (origY - cy) * finalIrisScale;
+
+            posAttr.setXY(vIdx, newX, newY);
+          }
+          posAttr.needsUpdate = true;
+        }
+
+        // 4. ハイライト表示：書き出し後と同じ局所POSITION差分でプレビュー
+        // exportSafeVRM() と同一係数を使用する。
+        const strength = parseFloat(sliderHlStrength.value);
+        const hlMove = strength * 0.03;
+        const hlInward = hlMove * 0.12;
+        const previewBlinkWeight = Math.max(0, (currentEyeOpenness - 0.5) * 2.0);
+        const previewWideWeight = Math.max(0, (0.5 - currentEyeOpenness) * 2.0);
+        const previewOffsetY = (-hlMove * previewBlinkWeight) + (hlMove * 0.75 * previewWideWeight);
+        const previewInward = (hlInward * previewBlinkWeight) + (hlInward * 0.5 * previewWideWeight);
+
+        for (let b = 0; b < highlightVertexBindings.length; b++) {
+          const binding = highlightVertexBindings[b];
+          const posAttr = binding.posAttr;
+          const indices = binding.indices;
+          const initialPos = binding.initialPos;
+          const xSign = binding.centerX >= 0 ? -1 : 1;
+
+          for (let i = 0; i < indices.length; i++) {
+            const vIdx = indices[i];
+            const origX = initialPos[i * 3];
+            const origY = initialPos[i * 3 + 1];
+            const origZ = initialPos[i * 3 + 2];
+            posAttr.setXYZ(vIdx, origX + xSign * previewInward, origY + previewOffsetY, origZ);
+          }
+          posAttr.needsUpdate = true;
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // 入力イベント
+    document.getElementById('btn-select-file').addEventListener('click', (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.style.background = 'rgba(58, 134, 255, 0.25)'; });
+    dropzone.addEventListener('dragleave', (e) => { e.preventDefault(); dropzone.style.background = 'rgba(18, 20, 26, 0.9)'; });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) loadVRMFile(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) loadVRMFile(file);
+    });
+
+    function loadVRMFile(file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => loadVRMFromArrayBuffer(ev.target.result, file.name);
+      reader.readAsArrayBuffer(file);
+    }
+  </script>
+</body>
+</html>
