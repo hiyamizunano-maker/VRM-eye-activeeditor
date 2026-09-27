@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VRM0.x 目まわりリアクティブ・エディタ v5</title>
+  <title>VRM ハイライトリアクティブ調整 v6</title>
   <style>
     :root {
       --bg-dark: #12141a;
@@ -234,8 +234,8 @@
   <div id="sidebar">
     <div class="panel-header">
       <div>
-        <h1>VRM 目まわりリアクティブ調整 v5</h1>
-        <p>書き出し結果準拠プレビュー & 非破壊安全書き出し</p>
+        <h1>VRM ハイライトリアクティブ調整 v6</h1>
+        <p>Blink連動ハイライト拡大縮小 & 非破壊安全書き出し</p>
       </div>
       <!-- モデル切り替えボタン -->
       <button id="btn-switch-model" class="btn-switch">🔄 別のVRMに差替</button>
@@ -249,8 +249,8 @@
         <span>VRMの非破壊書き出し (GLB保持保存)</span>
       </div>
       <p style="font-size: 11px; color: #cbd5e1; margin-bottom: 10px; line-height: 1.5;">
-        書き出し時は、閉眼側を既存の Blink / Blink_L / Blink_R、見開き側を PerfectSync の EyeWideLeft / EyeWideRight にだけ局所反映します。<br>
-        A / I / U / E / O など口形差分や、その他の表情モーフは変更しません。
+        書き出し時は、瞳全体の拡大縮小とハイライトの拡大縮小・移動を既存の Blink / Blink_L / Blink_Rへ局所反映します。PerfectSyncのEyeWideLeft / EyeWideRightにも瞳全体とハイライトの設定を反映します。<br>
+        瞳孔専用モーフと、A / I / U / E / O など口形差分やその他の表情モーフは変更しません。
       </p>
       <button id="btn-export-vrm" class="btn-action btn-save">
         💾 調整済み設定を別名VRMとして保存
@@ -281,20 +281,6 @@
       </div>
     </div>
 
-    <!-- 瞳の動作テスト（手動強制） -->
-    <div class="control-group" style="background: #1e1b2e;">
-      <div class="group-title" style="color: #c084fc;">
-        <span>瞳（黒目）動作検証（手動テスト）</span>
-      </div>
-      <div class="control-item">
-        <div class="label-row">
-          <span>瞳手動強制スケール (確認用)</span>
-          <span id="val-manual-iris-scale">1.00x</span>
-        </div>
-        <input type="range" id="slider-manual-iris-scale" min="0.4" max="2.0" step="0.05" value="1.0">
-      </div>
-    </div>
-
     <!-- 開閉テスト操作 -->
     <div class="control-group">
       <div class="group-title">
@@ -316,51 +302,54 @@
       </div>
     </div>
 
-    <!-- 瞳（Iris）設定 -->
-    <div class="control-group">
-      <div class="group-title">
-        <span>瞳全体（黒目）の連動設定</span>
+    <!-- 瞳全体の動作確認 -->
+    <div class="control-group" style="background: #1e1b2e;">
+      <div class="group-title" style="color: #c084fc;">
+        <span>瞳全体（黒目）の動作確認</span>
       </div>
+      <div class="control-item">
+        <div class="label-row">
+          <span>瞳全体の手動倍率（確認用）</span>
+          <span id="val-manual-iris-scale">1.00x</span>
+        </div>
+        <input type="range" id="slider-manual-iris-scale" min="0.4" max="2.0" step="0.05" value="1.0">
+      </div>
+    </div>
+
+    <!-- 瞳全体（Iris）設定。瞳孔だけを変形する機能ではない。 -->
+    <div class="control-group">
+      <div class="group-title"><span>瞳全体（黒目）の連動設定</span></div>
       <div class="control-item">
         <div class="label-row"><span>対象の瞳マテリアル (Iris)</span></div>
         <select id="select-material-iris"><option value="">（モデル読み込み待ち）</option></select>
       </div>
       <div class="control-item">
         <div class="label-row">
-          <span>見開き時の瞳拡大率 (Iris Dilate)</span>
+          <span>見開き時の瞳全体倍率</span>
           <span id="val-iris-scale-max">1.35x</span>
         </div>
         <input type="range" id="slider-iris-scale-max" min="1.0" max="1.8" step="0.05" value="1.35">
       </div>
       <div class="control-item">
         <div class="label-row">
-          <span>閉じかけ時の瞳収縮率 (Iris Shrink)</span>
+          <span>閉眼時の瞳全体倍率</span>
           <span id="val-iris-scale-min">0.70x</span>
         </div>
         <input type="range" id="slider-iris-scale-min" min="0.3" max="1.0" step="0.05" value="0.70">
       </div>
+      <p style="font-size:10px;color:#94a3b8;margin:6px 0 0;line-height:1.4;">
+        左右それぞれの瞳の中心を基準に、瞳マテリアル全体を拡大縮小します。瞳孔専用モーフは使用しません。
+      </p>
+      <p style="font-size:11px;color:#fbbf24;margin:7px 0 0;line-height:1.45;font-weight:700;">
+        ⚠ 元から瞳が大きいモデルは、見開き時の瞳全体倍率を100%のままにすることを推奨します。拡大すると白目や目の輪郭からはみ出す場合があります。
+      </p>
     </div>
 
-    <!-- 瞳孔モーフ設定 -->
-    <div class="control-group">
-      <div class="group-title">
-        <span>瞳孔モーフ設定</span>
-      </div>
-      <div class="control-item">
-        <div class="label-row"><span>見開き時の瞳孔モーフ (Pupil Wide)</span></div>
-        <select id="select-morph-wide"><option value="">（モデル読み込み待ち）</option></select>
-      </div>
-      <div class="control-item">
-        <div class="label-row"><span>閉じかけ時の瞳孔モーフ (Pupil Shrink)</span></div>
-        <select id="select-morph-shrink"><option value="">（モデル読み込み待ち）</option></select>
-      </div>
-      <div class="control-item">
-        <div class="label-row">
-          <span>モーフ適用倍率</span>
-          <span id="val-morph-weight">1.0</span>
-        </div>
-        <input type="range" id="slider-morph-weight" min="0.1" max="2.0" step="0.05" value="1.0">
-      </div>
+    <!-- 旧コードのnull参照防止用。瞳孔モーフ機能は使用しない。 -->
+    <div hidden aria-hidden="true">
+      <span id="val-morph-weight">0.0</span><input id="slider-morph-weight" value="0">
+      <select id="select-morph-wide"><option value=""></option></select>
+      <select id="select-morph-shrink"><option value=""></option></select>
     </div>
 
     <!-- ハイライト設定 -->
@@ -374,12 +363,23 @@
       </div>
       <div class="control-item">
         <div class="label-row">
+          <span>Blink時のハイライト倍率</span>
+          <span id="val-hl-blink-scale">100%</span>
+        </div>
+        <input type="range" id="slider-hl-blink-scale" min="0" max="2" step="0.05" value="1">
+        <p style="font-size:11px;color:#fbbf24;margin:7px 0 0;line-height:1.45;font-weight:700;">
+          ⚠ ハイライト倍率を大きくしすぎたり、揺れの強さを上げすぎたりすると、まぶたや目の輪郭からはみ出す可能性があります。見開き・通常・閉眼の各状態をプレビューで確認してください。
+        </p>
+      </div>
+      <div class="control-item">
+        <div class="label-row">
           <span>連動揺れの強さ (Amplitude)</span>
           <span id="val-hl-strength">0.08</span>
         </div>
-        <input type="range" id="slider-hl-strength" min="0.0" max="0.25" step="0.005" value="0.08">
+        <input type="range" id="slider-hl-strength" min="0.0" max="1.0" step="0.005" value="0.08">
         <p style="font-size:10px;color:#94a3b8;margin-top:6px;line-height:1.4;">
-          プレビューも書き出し後と同じ、Blink / EyeWide のハイライト頂点移動で表示します。<br>
+          Blink時の倍率は0〜200%。プレビューと書き出しへ同じ値を反映します。<br>
+          揺れの上限をv5の0.25から1.00へ拡大しました。大きな値はプレビューで確認してください。<br>
           0.08（既定値）は書き出し時・プレビューとも約2.4mmの基準移動です。<br>
           A/I/U/E/O およびその他の表情モーフは変更しません。
         </p>
@@ -458,6 +458,7 @@
     const sliderIrisScaleMax = document.getElementById('slider-iris-scale-max');
     const sliderIrisScaleMin = document.getElementById('slider-iris-scale-min');
     const sliderHlStrength = document.getElementById('slider-hl-strength');
+    const sliderHlBlinkScale = document.getElementById('slider-hl-blink-scale');
     const btnAutoBlink = document.getElementById('btn-autoblink');
     const btnSlowMo = document.getElementById('btn-slowmo');
     const dropzone = document.getElementById('dropzone-overlay');
@@ -493,6 +494,9 @@
     });
     sliderHlStrength.addEventListener('input', (e) => {
       document.getElementById('val-hl-strength').textContent = parseFloat(e.target.value).toFixed(3);
+    });
+    sliderHlBlinkScale.addEventListener('input', (e) => {
+      document.getElementById('val-hl-blink-scale').textContent = Math.round(parseFloat(e.target.value) * 100) + '%';
     });
 
     document.getElementById('p-wide').addEventListener('click', () => { targetEyeOpenness = 0.0; sliderEyeState.value = 0.0; document.getElementById('val-eye-state').textContent = '0.00'; });
@@ -748,7 +752,7 @@
 
             sideGroups.forEach(clusterIndices => {
               if (clusterIndices.length === 0) return;
-              let cx = 0;
+              let cx = 0, cy = 0;
               const initialPos = new Float32Array(clusterIndices.length * 3);
               for (let i = 0; i < clusterIndices.length; i++) {
                 const idx = clusterIndices[i];
@@ -759,9 +763,11 @@
                 initialPos[i * 3 + 1] = y;
                 initialPos[i * 3 + 2] = z;
                 cx += x;
+                cy += y;
               }
               cx /= clusterIndices.length;
-              highlightVertexBindings.push({ geom, posAttr, indices: clusterIndices, initialPos, centerX: cx });
+              cy /= clusterIndices.length;
+              highlightVertexBindings.push({ geom, posAttr, indices: clusterIndices, initialPos, centerX: cx, centerY: cy });
             });
           }
         });
@@ -832,12 +838,12 @@
       hlLine.append(hlName, ` (${highlightVertexBindings.reduce((a, b) => a + b.indices.length, 0)} 頂点)`);
 
       const irisLine = document.createElement('div');
-      irisLine.append('瞳(Iris)対象: ');
+      irisLine.append('瞳全体対象: ');
       const irisName = document.createElement('b');
       irisName.textContent = selIris ? selIris.name : '未選択';
-      irisLine.append(irisName, ` (${irisClusters.length} クラスタ / ${irisClusters.reduce((a, b) => a + b.indices.length, 0)} 頂点)`);
+      irisLine.append(irisName, ` (${irisClusters.reduce((a, b) => a + b.indices.length, 0)} 頂点)`);
 
-      bindInfo.append(hlLine, irisLine);
+      bindInfo.append(irisLine, hlLine);
     }
 
     function getIndicesForMaterial(geom, mats, targetMatUuid) {
@@ -1087,6 +1093,68 @@
       return changed;
     }
 
+    function applyAbsoluteHighlightScale(gltf, binDataView, meshIndex, targetIndex, highlightMaterialName, desiredScale, sideMode) {
+      const mesh = gltf.meshes && gltf.meshes[meshIndex];
+      if (!mesh) return 0;
+      const primitive = findMaterialPrimitive(gltf, meshIndex, highlightMaterialName);
+      if (!primitive || !primitive.targets || !primitive.targets[targetIndex] || primitive.targets[targetIndex].POSITION === undefined) return 0;
+
+      const baseLayout = getAccessorLayout(gltf, primitive.attributes.POSITION, binDataView);
+      const targetLayout = getAccessorLayout(gltf, primitive.targets[targetIndex].POSITION, binDataView);
+      if (baseLayout.acc.type !== 'VEC3' || targetLayout.acc.type !== 'VEC3') throw new Error('ハイライトPOSITIONがVEC3ではありません。');
+      if (baseLayout.acc.count !== targetLayout.acc.count) throw new Error('ハイライトBase/Target頂点数が一致しません。');
+
+      const indices = getPrimitiveVertexIndices(gltf, primitive, binDataView);
+      const clusters = splitIrisClusters(indices, baseLayout);
+      let useClusters = clusters;
+      if (sideMode === 'autoSide') {
+        const cluster = chooseSideCluster(clusters, baseLayout, targetLayout);
+        useClusters = cluster ? [cluster] : [];
+      }
+
+      let changed = 0;
+      for (const cluster of useClusters) {
+        let curCx = 0, curCy = 0, baseR2 = 0, curR2 = 0;
+        for (const idx of cluster.indices) {
+          const bx = readComponent(baseLayout, idx, 0);
+          const by = readComponent(baseLayout, idx, 1);
+          curCx += bx + readComponent(targetLayout, idx, 0);
+          curCy += by + readComponent(targetLayout, idx, 1);
+        }
+        curCx /= cluster.indices.length;
+        curCy /= cluster.indices.length;
+        for (const idx of cluster.indices) {
+          const bx = readComponent(baseLayout, idx, 0);
+          const by = readComponent(baseLayout, idx, 1);
+          const cx = bx + readComponent(targetLayout, idx, 0);
+          const cy = by + readComponent(targetLayout, idx, 1);
+          baseR2 += (bx - cluster.cx) ** 2 + (by - cluster.cy) ** 2;
+          curR2 += (cx - curCx) ** 2 + (cy - curCy) ** 2;
+        }
+        const currentScale = baseR2 > 1e-12 ? Math.sqrt(curR2 / baseR2) : 1;
+        const ratio = currentScale > 1e-6 ? desiredScale / currentScale : desiredScale;
+        for (const idx of cluster.indices) {
+          const bx = readComponent(baseLayout, idx, 0);
+          const by = readComponent(baseLayout, idx, 1);
+          const cx = bx + readComponent(targetLayout, idx, 0);
+          const cy = by + readComponent(targetLayout, idx, 1);
+          writeFloatComponent(targetLayout, idx, 0, curCx + (cx - curCx) * ratio - bx);
+          writeFloatComponent(targetLayout, idx, 1, curCy + (cy - curCy) * ratio - by);
+          changed++;
+        }
+      }
+      return changed;
+    }
+
+    function patchGroupHighlightScale(gltf, binDataView, group, highlightMaterialName, desiredScale, sideMode) {
+      let changed = 0;
+      for (const bind of (group.binds || [])) {
+        if (typeof bind.mesh !== 'number' || typeof bind.index !== 'number') continue;
+        changed += applyAbsoluteHighlightScale(gltf, binDataView, bind.mesh, bind.index, highlightMaterialName, desiredScale, sideMode);
+      }
+      return changed;
+    }
+
     function patchGroupIris(gltf, binDataView, group, irisMaterialName, desiredScale, sideMode) {
       let changed = 0;
       for (const bind of (group.binds || [])) {
@@ -1132,13 +1200,15 @@
         const blinkScale = parseFloat(sliderIrisScaleMin.value);
         const wideScale = parseFloat(sliderIrisScaleMax.value);
         const hlStrength = parseFloat(sliderHlStrength.value);
+        const blinkHlScale = parseFloat(sliderHlBlinkScale.value);
+        if (!Number.isFinite(blinkHlScale) || blinkHlScale < 0 || blinkHlScale > 2) throw new Error('Blink時のハイライト倍率は0〜200%で指定してください。');
         // 参考VRMの U/O で見られる局所頂点移動を参考に、
         // UIのAmplitudeをモデル空間の移動量へ変換する。
         // 0.08(既定値) -> 約2.4mm。
         const hlMove = hlStrength * 0.03;
         const hlInward = hlMove * 0.12;
         let blinkChanged = 0, wideChanged = 0, wideFound = 0;
-        let blinkHlChanged = 0, wideHlChanged = 0;
+        let blinkHlScaleChanged = 0, blinkHlChanged = 0, wideHlChanged = 0;
 
         // 閉眼: Blinkは両目、Blink_L / Blink_R は既存変形側だけ。
         // ハイライトは少し下＋中心方向へ移動させ、補間中にも動きが見えるようにする。
@@ -1147,9 +1217,11 @@
           const p = (g.presetName || '').toLowerCase();
           if (n === 'blink' || p === 'blink') {
             blinkChanged += patchGroupIris(gltf, binDataView, g, irisMaterialName, blinkScale, 'both');
+            blinkHlScaleChanged += patchGroupHighlightScale(gltf, binDataView, g, highlightMaterialName, blinkHlScale, 'both');
             blinkHlChanged += patchGroupHighlight(gltf, binDataView, g, highlightMaterialName, -hlMove, hlInward, 'both');
           } else if (n === 'blink_l' || n === 'blink_r' || p === 'blink_l' || p === 'blink_r') {
             blinkChanged += patchGroupIris(gltf, binDataView, g, irisMaterialName, blinkScale, 'autoSide');
+            blinkHlScaleChanged += patchGroupHighlightScale(gltf, binDataView, g, highlightMaterialName, blinkHlScale, 'autoSide');
             blinkHlChanged += patchGroupHighlight(gltf, binDataView, g, highlightMaterialName, -hlMove, hlInward, 'autoSide');
           }
         }
@@ -1165,8 +1237,8 @@
           }
         }
 
-        if (blinkChanged === 0 && wideChanged === 0 && blinkHlChanged === 0 && wideHlChanged === 0) {
-          throw new Error('対象となる Blink / EyeWide モーフの瞳・ハイライト頂点を変更できませんでした。対象マテリアルを確認してください。');
+        if (blinkChanged === 0 && wideChanged === 0 && blinkHlScaleChanged === 0 && blinkHlChanged === 0 && wideHlChanged === 0) {
+          throw new Error('対象となるBlink / EyeWideモーフの瞳・ハイライト頂点を変更できませんでした。対象マテリアルを確認してください。');
         }
 
         // JSONは構造変更しないが、元GLBを再構築してBIN差分を確実に反映する。
@@ -1201,9 +1273,9 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
 
         const wideMsg = wideFound > 0
-          ? `PerfectSync EyeWide: ${wideScale.toFixed(2)}x (${wideChanged}頂点を局所変更)`
+          ? `PerfectSync EyeWide瞳倍率: ${wideScale.toFixed(2)}x (${wideChanged}頂点)、ハイライト移動: ${wideHlChanged}頂点`
           : 'PerfectSync EyeWide: 見つからないため変更なし';
-        alert(`保存しました: ${outName}\n・Blink瞳縮小: ${blinkScale.toFixed(2)}x (${blinkChanged}頂点を局所変更)\n・Blinkハイライト移動: ${blinkHlChanged}頂点\n・${wideMsg}\n・EyeWideハイライト移動: ${wideHlChanged}頂点\n・A/I/U/E/O およびその他の表情差分は変更していません。`);
+        alert(`保存しました: ${outName}\n・Blink瞳全体倍率: ${blinkScale.toFixed(2)}x (${blinkChanged}頂点)\n・Blinkハイライト倍率: ${Math.round(blinkHlScale * 100)}% (${blinkHlScaleChanged}頂点)\n・Blinkハイライト移動: ${blinkHlChanged}頂点\n・${wideMsg}\n・瞳孔専用モーフとA/I/U/E/Oなどの表情差分は変更していません。`);
       } catch (err) {
         alert('書き出しに失敗しました: ' + err.message);
         console.error(err);
@@ -1265,23 +1337,10 @@
           currentVrm.blendShapeProxy.update();
         }
 
-        // 2. 瞳孔モーフの適用
-        const blinkWeight = Math.max(0, (currentEyeOpenness - 0.5) * 2.0);
-        const maxMorphGain = parseFloat(sliderMorphWeight.value);
-        const wideWeight = Math.max(0, (0.5 - currentEyeOpenness) * 2.0) * maxMorphGain;
-        if (selectedWideMorph && selectedWideMorph.mesh && selectedWideMorph.mesh.morphTargetInfluences) {
-          selectedWideMorph.mesh.morphTargetInfluences[selectedWideMorph.index] = wideWeight;
-        }
-        const shrinkWeight = blinkWeight * maxMorphGain;
-        if (selectedShrinkMorph && selectedShrinkMorph.mesh && selectedShrinkMorph.mesh.morphTargetInfluences) {
-          selectedShrinkMorph.mesh.morphTargetInfluences[selectedShrinkMorph.index] = shrinkWeight;
-        }
-
-        // 3. 瞳全体（黒目）の直接スケーリング
+        // 2. 瞳全体（黒目）の直接スケーリング。瞳孔専用モーフは使用しない。
         const irisScaleMax = parseFloat(sliderIrisScaleMax.value);
         const irisScaleMin = parseFloat(sliderIrisScaleMin.value);
         let dynamicScale = 1.0;
-
         if (currentEyeOpenness < 0.5) {
           const t = (0.5 - currentEyeOpenness) / 0.5;
           dynamicScale = 1.0 + (irisScaleMax - 1.0) * t;
@@ -1289,9 +1348,7 @@
           const t = (currentEyeOpenness - 0.5) / 0.5;
           dynamicScale = 1.0 - (1.0 - irisScaleMin) * t;
         }
-
         const finalIrisScale = dynamicScale * manualIrisScale;
-
         for (let c = 0; c < irisClusters.length; c++) {
           const cluster = irisClusters[c];
           const posAttr = cluster.posAttr;
@@ -1299,27 +1356,25 @@
           const initialPos = cluster.initialPos;
           const cx = cluster.center.x;
           const cy = cluster.center.y;
-
           for (let i = 0; i < indices.length; i++) {
             const vIdx = indices[i];
             const origX = initialPos[i * 3];
             const origY = initialPos[i * 3 + 1];
-
-            const newX = cx + (origX - cx) * finalIrisScale;
-            const newY = cy + (origY - cy) * finalIrisScale;
-
-            posAttr.setXY(vIdx, newX, newY);
+            const origZ = initialPos[i * 3 + 2];
+            posAttr.setXYZ(vIdx, cx + (origX - cx) * finalIrisScale, cy + (origY - cy) * finalIrisScale, origZ);
           }
           posAttr.needsUpdate = true;
         }
 
-        // 4. ハイライト表示：書き出し後と同じ局所POSITION差分でプレビュー
+        // 3. ハイライト表示：書き出し後と同じ拡大縮小・局所POSITION差分でプレビュー
         // exportSafeVRM() と同一係数を使用する。
         const strength = parseFloat(sliderHlStrength.value);
         const hlMove = strength * 0.03;
         const hlInward = hlMove * 0.12;
         const previewBlinkWeight = Math.max(0, (currentEyeOpenness - 0.5) * 2.0);
         const previewWideWeight = Math.max(0, (0.5 - currentEyeOpenness) * 2.0);
+        const blinkScale = parseFloat(sliderHlBlinkScale.value);
+        const previewScale = 1.0 + (blinkScale - 1.0) * previewBlinkWeight;
         const previewOffsetY = (-hlMove * previewBlinkWeight) + (hlMove * 0.75 * previewWideWeight);
         const previewInward = (hlInward * previewBlinkWeight) + (hlInward * 0.5 * previewWideWeight);
 
@@ -1335,7 +1390,9 @@
             const origX = initialPos[i * 3];
             const origY = initialPos[i * 3 + 1];
             const origZ = initialPos[i * 3 + 2];
-            posAttr.setXYZ(vIdx, origX + xSign * previewInward, origY + previewOffsetY, origZ);
+            const scaledX = binding.centerX + (origX - binding.centerX) * previewScale;
+            const scaledY = binding.centerY + (origY - binding.centerY) * previewScale;
+            posAttr.setXYZ(vIdx, scaledX + xSign * previewInward, scaledY + previewOffsetY, origZ);
           }
           posAttr.needsUpdate = true;
         }
